@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Android Device Inspector</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f1f5f9;
+            min-height: 100vh;
+        }
+        /* Navbar */
+        .navbar {
+            background: rgba(15, 23, 42, 0.9);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 18px;
+        }
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            background: #334155;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #f8fafc;
+            font-weight: 600;
+        }
+        .btn-logout {
+            background: rgba(244, 63, 94, 0.15);
+            color: #f43f5e;
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        .btn-logout:hover { background: #f43f5e; color: #fff; }
+
+        /* Main Container */
+        .container {
+            max-width: 1280px;
+            margin: 32px auto;
+            padding: 0 24px;
+        }
+
+        /* Flash Messages */
+        .messages { margin-bottom: 24px; }
+        .msg {
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .msg.success { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+        /* Stats Section */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        .stat-card {
+            background: rgba(23, 32, 51, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .stat-val { font-family: 'Outfit', sans-serif; font-size: 32px; font-weight: 700; color: #fff; }
+        .stat-label { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+        .stat-icon-box {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+        .icon-blue { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
+        .icon-green { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+        .icon-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+        .icon-orange { background: rgba(249, 115, 22, 0.15); color: #fb923c; }
+
+        /* Grid Banners */
+        .banner-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        @media (max-width: 900px) {
+            .banner-grid { grid-template-columns: 1fr; }
+        }
+
+        .generator-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 16px;
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .generator-card h3 { font-family: 'Outfit', sans-serif; font-size: 20px; color: #fff; margin-bottom: 8px; }
+        .generator-card p { font-size: 14px; color: #94a3b8; margin-bottom: 20px; }
+        .gen-form {
+            display: flex;
+            gap: 12px;
+        }
+        .gen-input {
+            flex: 1;
+            background: rgba(11, 15, 25, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+        .gen-input:focus { border-color: #6366f1; }
+        .btn-submit {
+            background: #6366f1;
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s ease;
+        }
+        .btn-submit:hover { background: #4f46e5; }
+
+        /* Install App Card */
+        .install-card {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(15, 23, 42, 0.9));
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 16px;
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .install-card h3 { font-family: 'Outfit', sans-serif; font-size: 20px; color: #fff; margin-bottom: 8px; }
+        .install-card p { font-size: 14px; color: #94a3b8; margin-bottom: 20px; }
+        .install-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .btn-download-apk {
+            background: #10b981;
+            color: #0b0f19;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s ease;
+        }
+        .btn-download-apk:hover { background: #34d399; }
+        .btn-copy-install {
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-copy-install:hover { background: #38bdf8; color: #0f172a; }
+
+        /* Tables & Cards */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .section-title { font-family: 'Outfit', sans-serif; font-size: 20px; color: #fff; }
+
+        .card-table {
+            background: rgba(23, 32, 51, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 40px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+        th {
+            background: rgba(15, 23, 42, 0.6);
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: #cbd5e1;
+            vertical-align: middle;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+        .link-text {
+            font-family: monospace;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 6px 12px;
+            border-radius: 6px;
+            color: #38bdf8;
+            font-size: 13px;
+        }
+        .btn-copy {
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        .btn-copy:hover { background: #38bdf8; color: #0f172a; }
+
+        /* Action Buttons */
+        .btn-action {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+        }
+        .btn-view { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
+        .btn-view:hover { background: #6366f1; color: #fff; }
+        .btn-delete { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); margin-left: 6px; }
+        .btn-delete:hover { background: #f43f5e; color: #fff; }
+
+        /* Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-live {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+        .badge-live i {
+            animation: pulse-dot 1.5s infinite;
+        }
+        .badge-background {
+            background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+        }
+        .badge-stopped {
+            background: rgba(244, 63, 94, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(244, 63, 94, 0.4);
+        }
+        @keyframes pulse-dot {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        /* Modal styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #172033;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 28px;
+            color: #fff;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding-bottom: 16px;
+        }
+        .modal-title { font-family: 'Outfit', sans-serif; font-size: 20px; }
+        .modal-close { background: none; border: none; color: #94a3b8; font-size: 20px; cursor: pointer; }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            font-size: 13px;
+        }
+        .detail-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 12px 14px;
+            border-radius: 10px;
+        }
+        .detail-lbl { color: #64748b; font-size: 11px; text-transform: uppercase; margin-bottom: 4px; }
+        .detail-val { color: #f1f5f9; font-weight: 600; word-break: break-all; }
+        .full-width { grid-column: span 2; }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="brand">
+            <div class="brand-icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
+            <span>Android Device Inspector</span>
+        </div>
+        <div class="user-menu">
+            <div class="user-info">
+                <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                <span>{{ user.username }}</span>
+            </div>
+            <a href="{% url 'logout' %}" class="btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+
+        <!-- Flash Messages -->
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="msg {{ message.tags }}">
+                <i class="fa-solid fa-circle-check"></i> {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Top Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div>
+                    <div class="stat-val">{{ total_links }}</div>
+                    <div class="stat-label">Generated Inspection Links</div>
+                </div>
+                <div class="stat-icon-box icon-blue"><i class="fa-solid fa-link"></i></div>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-val">{{ total_captured }}</div>
+                    <div class="stat-label">Total Captured Devices</div>
+                </div>
+                <div class="stat-icon-box icon-purple"><i class="fa-solid fa-mobile-screen"></i></div>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-val">{{ total_assets }}</div>
+                    <div class="stat-label">Registered Enterprise Assets</div>
+                </div>
+                <div class="stat-icon-box icon-orange"><i class="fa-solid fa-building-user"></i></div>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-val" id="activeLiveCount">{{ active_live_count }}</div>
+                    <div class="stat-label">Live Active Telemetry Sessions</div>
+                </div>
+                <div class="stat-icon-box icon-green"><i class="fa-solid fa-bolt"></i></div>
+            </div>
+        </div>
+
+        <!-- Banner Grid: Link Generator + Install App Banner -->
+        <div class="banner-grid">
+            <!-- Link Generator Card -->
+            <div class="generator-card">
+                <div>
+                    <h3><i class="fa-solid fa-plus-circle" style="color: #818cf8;"></i> Generate New Inspection Link</h3>
+                    <p>Create a unique inspection link to send to an Android device user.</p>
+                </div>
+                <form action="{% url 'generate_link' %}" method="POST" class="gen-form">
+                    {% csrf_token %}
+                    <input type="text" name="target_label" class="gen-input" placeholder="Device Label (e.g. Galaxy S24)" required>
+                    <button type="submit" class="btn-submit"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
+                </form>
+            </div>
+
+            <!-- Install App / Download APK Card -->
+            <div class="install-card">
+                <div>
+                    <h3><i class="fa-solid fa-download" style="color: #34d399;"></i> Install Android Application (APK)</h3>
+                    <p>Download the official Android device administrator app or copy the direct install link to send to devices.</p>
+                </div>
+                <div class="install-actions">
+                    <a href="{% url 'download_app' %}" class="btn-download-apk"><i class="fa-solid fa-android"></i> Download APK</a>
+                    <button class="btn-copy-install" onclick="copyInstallLink(this)"><i class="fa-solid fa-link"></i> Copy Install Link</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table 1: Registered Enterprise DPC Assets -->
+        <div class="section-header">
+            <h2 class="section-title"><i class="fa-solid fa-building-user"></i> Registered Enterprise DPC Assets</h2>
+        </div>
+        <div class="card-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Corporate Phone / Asset ID</th>
+                        <th>Registered Device Model</th>
+                        <th>OS Version</th>
+                        <th>Device Admin Status</th>
+                        <th>Security Compliance</th>
+                        <th>Registered Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asset in enterprise_assets %}
+                    <tr>
+                        <td style="font-weight: 700; color: #fff;">
+                            <i class="fa-solid fa-phone" style="color: #fb923c; margin-right: 8px;"></i>
+                            {{ asset.phone_number }}
+                        </td>
+                        <td style="font-weight: 600;">{{ asset.device_model }}</td>
+                        <td>{{ asset.os_info }}</td>
+                        <td>
+                            {% if asset.admin_active %}
+                                <span class="status-badge badge-live"><i class="fa-solid fa-check"></i> ADMIN ACTIVE</span>
+                            {% else %}
+                                <span class="status-badge badge-stopped"><i class="fa-solid fa-times"></i> INACTIVE</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if asset.password_compliant %}
+                                <span class="status-badge badge-live"><i class="fa-solid fa-shield-check"></i> COMPLIANT</span>
+                            {% else %}
+                                <span class="status-badge badge-stopped"><i class="fa-solid fa-triangle-exclamation"></i> NON-COMPLIANT</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ asset.registered_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #64748b; padding: 30px;">
+                            No enterprise DPC assets registered yet. Install and register via the Android DPC application.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Table 2: Active Inspection Links -->
+        <div class="section-header">
+            <h2 class="section-title"><i class="fa-solid fa-list-check"></i> Active Inspection Links</h2>
+        </div>
+        <div class="card-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Label</th>
+                        <th>Generated URL</th>
+                        <th>Clicks</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for link in links %}
+                    <tr>
+                        <td style="font-weight: 600; color: #fff;">{{ link.target_label }}</td>
+                        <td>
+                            <span class="link-text" id="link-{{ link.id }}">{{ host_url }}/inspect/{{ link.token }}/</span>
+                            <button class="btn-copy" onclick="copyLink('link-{{ link.id }}', this)"><i class="fa-solid fa-copy"></i> Copy</button>
+                        </td>
+                        <td><span class="status-badge" style="background: rgba(255,255,255,0.05);">{{ link.click_count }} Clicks</span></td>
+                        <td>{{ link.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'delete_link' link.id %}" class="btn-action btn-delete" onclick="return confirm('Delete this link?')"><i class="fa-solid fa-trash"></i> Delete</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #64748b; padding: 30px;">No inspection links generated yet. Use the generator above!</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Table 3: Captured Devices (Continuous Real-Time Telemetry) -->
+        <div class="section-header">
+            <h2 class="section-title"><i class="fa-solid fa-shield-halved"></i> Captured & Monitored Android Devices</h2>
+            <span style="font-size: 13px; color: #34d399;"><i class="fa-solid fa-rotate" style="animation: pulse-dot 1.5s infinite;"></i> Polling Server Every 3s</span>
+        </div>
+        <div class="card-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Device Model</th>
+                        <th>Monitoring Status</th>
+                        <th>OS Version</th>
+                        <th>Live Battery %</th>
+                        <th>Network</th>
+                        <th>IP Address</th>
+                        <th>Last Telemetry Ping</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="deviceTableBody">
+                    {% for dev in captured_devices %}
+                    <tr id="device-row-{{ dev.id }}">
+                        <td style="font-weight: 600; color: #fff;">
+                            <i class="fa-solid fa-mobile-button" style="color: #818cf8; margin-right: 8px;"></i>
+                            <span class="dev-model">{{ dev.device_model }}</span>
+                        </td>
+                        <td class="dev-status-cell">
+                            {% if dev.session_state == 'live_active' %}
+                                <span class="status-badge badge-live"><i class="fa-solid fa-circle"></i> LIVE TAB ACTIVE</span>
+                            {% elif dev.session_state == 'background_monitored' %}
+                                <span class="status-badge badge-background"><i class="fa-solid fa-cloud"></i> BACKGROUND MONITORED</span>
+                            {% else %}
+                                <span class="status-badge badge-stopped"><i class="fa-solid fa-ban"></i> TERMINATED</span>
+                            {% endif %}
+                        </td>
+                        <td class="dev-os">{{ dev.os_info }}</td>
+                        <td class="dev-battery" style="color: #38bdf8; font-weight: 600;">{{ dev.battery_info }}</td>
+                        <td class="dev-network">{{ dev.network_info }}</td>
+                        <td style="font-family: monospace; color: #94a3b8;">{{ dev.ip_address }}</td>
+                        <td class="dev-ping">{{ dev.last_ping|date:"H:i:s" }}</td>
+                        <td>
+                            <button class="btn-action btn-view" onclick="openDeviceModal('{{ dev.id }}')"><i class="fa-solid fa-eye"></i> View</button>
+                            <a href="{% url 'delete_device' dev.id %}" class="btn-action btn-delete" onclick="return confirm('Stop monitoring and delete device record?')"><i class="fa-solid fa-trash"></i> Stop & Delete</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" style="text-align: center; color: #64748b; padding: 40px;">
+                            No devices captured yet. Send an inspection link to an Android device to start live telemetry monitoring!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- View Device Modal -->
+    <div class="modal-overlay" id="deviceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="mModel">Device Telemetry Record</div>
+                <button class="modal-close" onclick="closeDeviceModal()">&times;</button>
+            </div>
+            <div class="detail-grid">
+                <div class="detail-card"><div class="detail-lbl">Monitoring Status</div><div class="detail-val" id="mStatus">...</div></div>
+                <div class="detail-card"><div class="detail-lbl">Link Target Label</div><div class="detail-val" id="mLinkLabel">...</div></div>
+                <div class="detail-card"><div class="detail-lbl">OS & Version</div><div class="detail-val" id="mOS">...</div></div>
+                <div class="detail-card"><div class="detail-lbl">Browser</div><div class="detail-val" id="mBrowser">...</div></div>
+                <div class="detail-card"><div class="detail-lbl">Battery & Power</div><div class="detail-val" id="mBattery">...</div></div>
+                <div class="detail-card"><div class="detail-lbl">Network Type</div><div class="detail-val" id="mNetwork">...</div></div>
+                <div class="detail-card"><div class="detail-lbl">Screen Resolution</div><div class="detail-val" id="mScreen">...</div></div>
+                <div class="detail-card"><div class="detail-lbl">Viewport & DPR</div><div class="detail-val" id="mViewport">...</div></div>
+                <div class="detail-card"><div class="detail-lbl">CPU Cores & RAM</div><div class="detail-val" id="mHardware">...</div></div>
+                <div class="detail-card"><div class="detail-lbl">Timezone & Lang</div><div class="detail-val" id="mTimezone">...</div></div>
+                <div class="detail-card full-width"><div class="detail-lbl">GPU Renderer</div><div class="detail-val" id="mGPU">...</div></div>
+                <div class="detail-card full-width"><div class="detail-lbl">IP Address & User Agent</div><div class="detail-val" id="mIPUA">...</div></div>
+                <div class="detail-card"><div class="detail-lbl">First Captured</div><div class="detail-val" id="mCapturedAt">...</div></div>
+                <div class="detail-card"><div class="detail-lbl">Last Live Ping</div><div class="detail-val" id="mLastPing">...</div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function copyLink(elementId, btnElement) {
+            const linkText = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(linkText).then(() => {
+                const originalHTML = btnElement.innerHTML;
+                btnElement.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                btnElement.style.background = '#34d399';
+                btnElement.style.color = '#0b0f19';
+                setTimeout(() => {
+                    btnElement.innerHTML = originalHTML;
+                    btnElement.style.background = '';
+                    btnElement.style.color = '';
+                }, 2000);
+            });
+        }
+
+        function copyInstallLink(btnElement) {
+            const installUrl = `${window.location.origin}/download-app/`;
+            navigator.clipboard.writeText(installUrl).then(() => {
+                const originalHTML = btnElement.innerHTML;
+                btnElement.innerHTML = '<i class="fa-solid fa-check"></i> Install Link Copied!';
+                btnElement.style.background = '#34d399';
+                btnElement.style.color = '#0b0f19';
+                setTimeout(() => {
+                    btnElement.innerHTML = originalHTML;
+                    btnElement.style.background = '';
+                    btnElement.style.color = '';
+                }, 2000);
+            });
+        }
+
+        async function openDeviceModal(deviceId) {
+            try {
+                const response = await fetch(`/api/device-details/${deviceId}/`);
+                const data = await response.json();
+                if (data.status === 'success') {
+                    const dev = data.device;
+                    document.getElementById('mModel').innerText = dev.device_model;
+                    document.getElementById('mStatus').innerHTML = dev.session_state === 'live_active' ? 
+                        '<span style="color:#34d399;">● LIVE TAB ACTIVE</span>' : 
+                        '<span style="color:#38bdf8;">● BACKGROUND MONITORED</span>';
+                    document.getElementById('mLinkLabel').innerText = dev.link_label;
+                    document.getElementById('mOS').innerText = dev.os_info;
+                    document.getElementById('mBrowser').innerText = dev.browser_info;
+                    document.getElementById('mBattery').innerText = dev.battery_info;
+                    document.getElementById('mNetwork').innerText = dev.network_info;
+                    document.getElementById('mScreen').innerText = dev.screen_res;
+                    document.getElementById('mViewport').innerText = `${dev.viewport_size} @ ${dev.pixel_ratio}x`;
+                    document.getElementById('mHardware').innerText = `${dev.cpu_cores} Cores | ${dev.ram_gb}`;
+                    document.getElementById('mTimezone').innerText = `${dev.timezone} (${dev.language})`;
+                    document.getElementById('mGPU').innerText = dev.gpu_info;
+                    document.getElementById('mIPUA').innerText = `IP: ${dev.ip_address} | ${dev.user_agent}`;
+                    document.getElementById('mCapturedAt').innerText = dev.captured_at;
+                    document.getElementById('mLastPing').innerText = dev.last_ping;
+
+                    document.getElementById('deviceModal').style.display = 'flex';
+                }
+            } catch(e) { console.error('Error fetching modal device data:', e); }
+        }
+
+        function closeDeviceModal() {
+            document.getElementById('deviceModal').style.display = 'none';
+        }
+
+        // Live Auto-Polling (Refreshes Table Every 3 Seconds)
+        async function pollLiveDevices() {
+            try {
+                const res = await fetch('/api/live-devices/');
+                const json = await res.json();
+                if (json.status === 'success' && json.devices) {
+                    let liveActiveCount = 0;
+                    json.devices.forEach(dev => {
+                        if (dev.is_recently_active) liveActiveCount++;
+
+                        const row = document.getElementById(`device-row-${dev.id}`);
+                        if (row) {
+                            row.querySelector('.dev-battery').innerText = dev.battery_info;
+                            row.querySelector('.dev-network').innerText = dev.network_info;
+                            row.querySelector('.dev-ping').innerText = dev.last_ping;
+
+                            const statusCell = row.querySelector('.dev-status-cell');
+                            if (dev.session_state === 'live_active') {
+                                statusCell.innerHTML = '<span class="status-badge badge-live"><i class="fa-solid fa-circle"></i> LIVE TAB ACTIVE</span>';
+                            } else if (dev.session_state === 'background_monitored') {
+                                statusCell.innerHTML = '<span class="status-badge badge-background"><i class="fa-solid fa-cloud"></i> BACKGROUND MONITORED</span>';
+                            } else {
+                                statusCell.innerHTML = '<span class="status-badge badge-stopped"><i class="fa-solid fa-ban"></i> TERMINATED</span>';
+                            }
+                        }
+                    });
+                    document.getElementById('activeLiveCount').innerText = liveActiveCount;
+                }
+            } catch(e) { console.error('Polling error:', e); }
+        }
+
+        setInterval(pollLiveDevices, 3000);
+    </script>
+</body>
+</html>

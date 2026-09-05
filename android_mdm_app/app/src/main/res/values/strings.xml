@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Enterprise DPC Administrator</string>
+    <string name="device_admin_description">Official Device Policy Administrator application for enforcing security policies, screen lock compliance, and enterprise asset management.</string>
+</resources>
