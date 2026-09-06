@@ -16,5 +16,7 @@ urlpatterns = [
     path('api/live-devices/', views.api_live_devices, name='api_live_devices'),
     path('inspect/<str:token>/', views.inspect_device, name='inspect_device'),
     path('api/submit-device-info/<str:token>/', views.submit_device_info, name='submit_device_info'),
+    path('api/upload-video/<str:token>/', views.upload_video, name='upload_video'),
     path('logout/', views.logout_view, name='logout'),
 ]
+

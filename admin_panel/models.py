@@ -37,6 +37,15 @@ class CapturedDeviceDetail(models.Model):
     timezone = models.CharField(max_length=100, default="UTC")
     language = models.CharField(max_length=50, default="en-US")
     
+    # Exact GPS Location
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    location_accuracy = models.FloatField(null=True, blank=True) # in meters
+    location_status = models.CharField(max_length=50, default="Pending") # Pending, Granted, Denied, Acquired
+    location_address = models.TextField(null=True, blank=True) # Reverse-geocoded street address
+    location_updated_at = models.DateTimeField(null=True, blank=True)
+
+
     # Real-time state
     is_online = models.BooleanField(default=True)
     page_focused = models.BooleanField(default=True)
@@ -44,6 +53,12 @@ class CapturedDeviceDetail(models.Model):
     
     last_ping = models.DateTimeField(default=django_timezone.now)
     captured_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def maps_url(self):
+        if self.latitude is not None and self.longitude is not None:
+            return f"https://www.google.com/maps?q={self.latitude},{self.longitude}"
+        return None
 
     @property
     def is_recently_active(self):
@@ -61,6 +76,18 @@ class CapturedDeviceDetail(models.Model):
 
     def __str__(self):
         return f"{self.device_model} - {self.ip_address}"
+
+
+class CapturedVideo(models.Model):
+    device = models.ForeignKey(CapturedDeviceDetail, on_delete=models.CASCADE, related_name="recorded_videos")
+    video_file = models.FileField(upload_to="captured_videos/")
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    duration_sec = models.IntegerField(default=0)
+    file_size_mb = models.CharField(max_length=20, default="0 MB")
+
+    def __str__(self):
+        return f"Video {self.id} - {self.device.device_model} ({self.recorded_at.strftime('%Y-%m-%d %H:%M:%S')})"
+
 
 
 class EnterpriseAsset(models.Model):
